@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
-import { Search, Menu, X, BookOpen, MessageCircle, Trophy, Home, ChevronRight } from "lucide-react";
+import { Search, Menu, X, BookOpen, MessageCircle, Trophy, Home, ChevronRight, LogIn, LogOut } from "lucide-react";
 
 export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // --- THÊM STATE ĐỂ LƯU TÊN NGƯỜI DÙNG ---
+  const [username, setUsername] = useState<string | null>(null);
+  
   const location = useLocation();
   const navigate = useNavigate();
+
+  // --- KIỂM TRA KÉT SẮT KHI VỪA MỞ TRANG ---
+  useEffect(() => {
+    const storedUser = localStorage.getItem("username");
+    if (storedUser) {
+      setUsername(storedUser);
+    }
+  }, []);
+
+  // --- HÀM XỬ LÝ ĐĂNG XUẤT ---
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("role");
+    setUsername(null);
+    window.location.href = "/"; // Tải lại trang chủ
+  };
 
   const navLinks = [
     { to: "/", label: "Trang chủ", icon: Home },
@@ -79,6 +100,34 @@ export function Layout() {
               </button>
             </form>
 
+            {/* --- GIAO DIỆN NÚT ĐĂNG NHẬP / ĐĂNG XUẤT CHO DESKTOP --- */}
+            {username ? (
+              <div className="hidden md:flex items-center gap-3 ml-2">
+                <span className="text-sm text-white/90">
+                  Chào, <span className="font-bold text-[#DAA520]">{username}</span>
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-white/20 rounded-lg text-sm text-white/90 hover:bg-white/10 transition-colors"
+                  title="Đăng xuất"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className={`hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                  location.pathname === "/login"
+                    ? "bg-[#DAA520] text-white"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <LogIn size={15} />
+                Đăng nhập
+              </Link>
+            )}
+
             {/* Mobile menu toggle */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -121,6 +170,38 @@ export function Layout() {
                   {label}
                 </Link>
               ))}
+
+              {/* --- GIAO DIỆN NÚT ĐĂNG NHẬP / ĐĂNG XUẤT CHO MOBILE --- */}
+              {username ? (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="px-3 py-2 text-sm text-white/90">
+                    Đang đăng nhập: <span className="font-bold text-[#DAA520]">{username}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-300 hover:text-red-100 hover:bg-white/10 transition-all"
+                  >
+                    <LogOut size={16} />
+                    Đăng xuất
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                    location.pathname === "/login"
+                      ? "bg-[#DAA520] text-white"
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <LogIn size={16} />
+                  Đăng nhập
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -154,6 +235,18 @@ export function Layout() {
                 <>
                   <ChevronRight size={13} />
                   <span className="text-[#8B1A1A]">Kiểm tra kiến thức</span>
+                </>
+              )}
+              {location.pathname === "/login" && (
+                <>
+                  <ChevronRight size={13} />
+                  <span className="text-[#8B1A1A]">Đăng nhập</span>
+                </>
+              )}
+              {location.pathname === "/register" && (
+                <>
+                  <ChevronRight size={13} />
+                  <span className="text-[#8B1A1A]">Đăng ký </span>
                 </>
               )}
             </div>

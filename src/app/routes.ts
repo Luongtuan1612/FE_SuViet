@@ -5,6 +5,8 @@ import { Events } from "./pages/Events";
 import { EventDetail } from "./pages/EventDetail";
 import { AiChat } from "./pages/AiChat";
 import { Quiz } from "./pages/Quiz";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +18,8 @@ export const router = createBrowserRouter([
       { path: "su-kien/:id", Component: EventDetail },
       { path: "hoi-dap-ai", Component: AiChat },
       { path: "kiem-tra", Component: Quiz },
+      { path: "login", Component: Login },
+      { path: "register", Component: Register },
     ],
   },
 ]);

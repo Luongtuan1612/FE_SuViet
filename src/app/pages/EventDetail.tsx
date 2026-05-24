@@ -3,7 +3,16 @@ import { historyService, HistoryEvent } from "../../services/historyService";
 import { useParams, Link } from "react-router";
 import { Clock, Tag, User, ArrowLeft, Sparkles, ChevronRight, BookOpen } from "lucide-react";
 
-// Định nghĩa màu sắc và nhãn (giữ nguyên giao diện của bạn)
+// Định nghĩa giao diện cho Nhân vật lịch sử hứng từ API
+export interface HistoricalFigure {
+  id: number;
+  name: string;
+  bornDied: string;
+  description: string;
+  story: string;
+  image: string;
+}
+
 const categoryColors: Record<string, string> = {
   "khoi-nghia": "bg-red-100 text-red-700",
   "chong-ngoai-xam": "bg-orange-100 text-orange-700",
@@ -23,26 +32,35 @@ export function EventDetail() {
   const [showSummary, setShowSummary] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // 1. QUẢN LÝ TRẠNG THÁI DỮ LIỆU
   const [event, setEvent] = useState<HistoryEvent | null>(null);
+  const [figures, setFigures] = useState<HistoricalFigure[]>([]); // State mới lưu danh sách nhân vật
   const [loading, setLoading] = useState(true);
 
-  // 2. GỌI API KHI VÀO TRANG
+  // GỌI API LẤY SỰ KIỆN VÀ NHÂN VẬT CÙNG LÚC
   useEffect(() => {
-    const fetchEventDetail = async () => {
+    const fetchData = async () => {
       if (id) {
         setLoading(true);
-        console.log("Đang lấy chi tiết cho ID:", id);
-        const data = await historyService.getArticleById(id);
-        setEvent(data);
-        setLoading(false);
+        try {
+          // 1. Lấy chi tiết sự kiện
+          const eventData = await historyService.getArticleById(id);
+          setEvent(eventData);
+
+          // 2. Lấy danh sách nhân vật tham gia sự kiện này (Gọi thẳng API vừa tạo)
+          const figureRes = await fetch(`http://localhost:8080/api/v1/figures/article/${id}`);
+          if (figureRes.ok) {
+            const figureData = await figureRes.json();
+            setFigures(figureData);
+          }
+        } catch (error) {
+          console.error("Lỗi khi lấy dữ liệu:", error);
+        } finally {
+          setLoading(false);
+        }
       }
     };
-    fetchEventDetail();
+    fetchData();
   }, [id]);
-
-  // Tạm thời chưa có sự kiện liên quan từ API
-  const relatedEvents: any[] = [];
 
   const handleGenerateSummary = () => {
     setIsGenerating(true);
@@ -52,7 +70,6 @@ export function EventDetail() {
     }, 1800);
   };
 
-  // Hàm định dạng nội dung văn bản
   const formatContent = (content: string) => {
     if (!content) return null;
     return content.split("\n\n").map((para, i) => {
@@ -67,7 +84,6 @@ export function EventDetail() {
     });
   };
 
-  // 3. XỬ LÝ CÁC TRẠNG THÁI HIỂN THỊ (CHỐNG MÀN HÌNH TRỐNG)
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -90,10 +106,11 @@ export function EventDetail() {
     );
   }
 
-  // 4. GIAO DIỆN CHÍNH (Sử dụng dữ liệu từ biến event)
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* CỘT TRÁI: NỘI DUNG CHÍNH */}
         <div className="lg:col-span-2">
           <Link to="/su-kien" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#8B1A1A] mb-6 transition-colors">
             <ArrowLeft size={15} /> Quay lại sự kiện
@@ -122,7 +139,6 @@ export function EventDetail() {
             </p>
           </div>
 
-          {/* Nội dung chi tiết lấy từ database */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
             <h2 className="text-[#8B1A1A] mb-4 flex items-center gap-2" style={{ fontWeight: 700, fontSize: "1.1rem" }}>
               <BookOpen size={18} />
@@ -133,7 +149,6 @@ export function EventDetail() {
             </div>
           </div>
           
-          {/* AI Summary (Mockup logic giữ nguyên) */}
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm mb-6 overflow-hidden">
              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -154,8 +169,9 @@ export function EventDetail() {
           </div>
         </div>
 
-        {/* Sidebar */}
+        {/* CỘT PHẢI: SIDEBAR */}
         <div className="space-y-5">
+          {/* Thẻ Dòng thời gian */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
               <Clock size={16} className="text-[#8B1A1A]" />
@@ -172,7 +188,33 @@ export function EventDetail() {
               </div>
             </div>
           </div>
+
+          {/* THẺ MỚI: DANH SÁCH NHÂN VẬT LỊCH SỬ */}
+          {figures.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <User size={16} className="text-[#8B1A1A]" />
+                Nhân vật liên quan
+              </h3>
+              <div className="space-y-4">
+                {figures.map((figure) => (
+                  <div key={figure.id} className="flex gap-3 items-center p-2 -mx-2 rounded-xl hover:bg-gray-50 transition-colors">
+                    <img 
+                      src={figure.image} 
+                      alt={figure.name} 
+                      className="w-12 h-12 rounded-full object-cover border-2 border-gray-100 shrink-0 shadow-sm"
+                    />
+                    <div>
+                      <h4 className="font-semibold text-sm text-gray-800 leading-tight mb-0.5">{figure.name}</h4>
+                      <p className="text-xs text-gray-500">{figure.bornDied}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
+          {/* Thẻ Quảng cáo trợ lý AI */}
           <div className="bg-gradient-to-br from-[#8B1A1A] to-[#5C1111] rounded-2xl p-5 text-white text-center">
              <h3 className="font-bold mb-2">Bạn có thắc mắc?</h3>
              <p className="text-xs text-white/70 mb-4">Hãy hỏi trợ lý AI để hiểu sâu hơn về sự kiện này.</p>
