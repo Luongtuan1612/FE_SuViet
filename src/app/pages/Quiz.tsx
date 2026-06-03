@@ -212,6 +212,7 @@ export function Quiz() {
   const [quizState, setQuizState] = useState<QuizState>("select");
   const [selectedTopic, setSelectedTopic] = useState<UIQuizTopic | null>(null);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   
   // --- STATE MỚI CHO API ---
   const [topics, setTopics] = useState<UIQuizTopic[]>([]);
@@ -235,7 +236,31 @@ export function Quiz() {
     };
     fetchTopics();
   }, []);
+// Tải lịch sử làm bài nếu người dùng đã đăng nhập
+  useEffect(() => {
+    const fetchHistory = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return; // Nếu chưa đăng nhập thì thôi không lấy
 
+      try {
+        const response = await fetch("http://localhost:8080/api/v1/quizzes/history", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setHistory(data);
+        }
+      } catch (error) {
+        console.error("Không thể lấy lịch sử làm bài:", error);
+      }
+    };
+    
+    if (quizState === "select") {
+      fetchHistory(); // Mỗi khi ở màn hình chọn chủ đề thì cập nhật lịch sử mới nhất
+    }
+  }, [quizState]);
   // 2. Lấy câu hỏi chi tiết khi người dùng click vào 1 chủ đề
   const handleSelectTopic = async (topic: UIQuizTopic) => {
     setFetchingTopicId(topic.id);
@@ -268,9 +293,47 @@ export function Quiz() {
     }
   };
 
-  const handleFinish = (finalAnswers: AnswerRecord[]) => {
+  const handleFinish = async (finalAnswers: AnswerRecord[]) => {
+    // 1. Vẫn cho hiển thị bảng điểm trên giao diện như cũ
     setAnswers(finalAnswers);
     setQuizState("result");
+
+    // 2. Tính toán số câu đúng và tổng số câu để chuẩn bị gửi lên Server
+    const correctCount = finalAnswers.filter((a) => a.correct).length;
+    const totalCount = selectedTopic?.questions.length || 0;
+    
+    // 3. Lục két sắt lấy Thẻ bài VIP (Token) ra
+    const token = localStorage.getItem("token");
+
+    // Nếu người dùng chưa đăng nhập thì không làm gì cả (hoặc thông báo nhắc nhở)
+    if (!token) {
+      console.log("Người dùng chưa đăng nhập, kết quả thi sẽ không được lưu lại.");
+      return;
+    }
+
+    try {
+      // 4. Bắn dữ liệu sang API submit của Spring Boot
+      const response = await fetch("http://localhost:8080/api/v1/quizzes/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // KẸP TOKEN VÀO HEADER ĐỂ BÁC BẢO VỆ CHO QUA
+        },
+        body: JSON.stringify({
+          topicId: selectedTopic?.id,
+          score: correctCount,
+          totalQuestions: totalCount
+        })
+      });
+
+      if (response.ok) {
+        console.log("🎉 Hệ thống SuViet đã ghi nhận điểm số của bạn thành công!");
+      } else {
+        console.error("Có lỗi xảy ra khi lưu điểm lên máy chủ.");
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối mạng, không thể lưu điểm:", error);
+    }
   };
 
   const handleRestart = () => {
@@ -331,6 +394,38 @@ export function Quiz() {
               ))
             )}
           </div>
+          {/* --- KHU VỰC HIỂN THỊ LỊCH SỬ LÀM BÀI --- */}
+          {localStorage.getItem("token") && history.length > 0 && (
+            <div className="mt-12 max-w-3xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
+                ⏱️ Lịch sử làm bài gần đây
+              </h3>
+              <div className="space-y-3">
+                {history.map((item) => {
+                  const percentage = Math.round((item.score / item.totalQuestions) * 100);
+                  return (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-[#FBF7F0]/60 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{item.topicEmoji}</span>
+                        <div>
+                          <div className="font-semibold text-gray-800 text-sm">{item.topicTitle}</div>
+                          <div className="text-xs text-gray-400">
+                            Ngày làm: {new Date(item.completedAt).toLocaleString("vi-VN")}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold text-sm ${percentage >= 80 ? "text-green-600" : percentage >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                          Đúng: {item.score}/{item.totalQuestions}
+                        </div>
+                        <div className="text-xs text-gray-400">Tỷ lệ: {percentage}%</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 bg-[#F5EDD8] border border-[#DAA520]/30 rounded-2xl p-6 max-w-2xl mx-auto text-center">
             <div className="text-2xl mb-2">📚</div>
